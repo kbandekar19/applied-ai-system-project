@@ -299,3 +299,6 @@ applied-ai-system-project/
 | `pytest` | Unit testing | MIT |
 
 No paid APIs. No accounts required. Fully reproducible from `pip install -r requirements.txt`.
+
+Demo Video link - https://www.loom.com/share/35312ea3922e48e89b07ada9ff6dbe63
+What I have learnt: This project reflects my approach to building AI systems that are not only functional, but also interpretable and reliable. I focused on combining multiple techniques  semantic retrieval through RAG, structured content-based scoring, and an agentic validation loop  to create a system that produces meaningful and trustworthy outputs. Rather than treating AI as a black box, I designed VibeMatcher AI to explain its reasoning at every step, which I believe is critical for real-world applications. This project also demonstrates my ability to think beyond individual models and build complete end-to-end systems, including evaluation and edge-case handling. Overall, it shows that I prioritize clarity, robustness, and user trust when designing AI solutions.
