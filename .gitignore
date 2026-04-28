@@ -13,3 +13,9 @@ venv/
 
 # Pytest cache
 .pytest_cache/
+
+# Runtime logs (generated at run time)
+logs/
+
+# sentence-transformers model cache
+.cache/

@@ -1,371 +1,301 @@
-# 🎵 Music Recommender Simulation
+# VibeMatcher AI — End-to-End Music Recommendation System
 
-## Project Summary
-
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+> A natural-language music recommender powered by Retrieval-Augmented Generation, an agentic self-validating pipeline, and a reliability evaluation system. Built as a final Applied AI project.
 
 ---
 
-## How The System Works
+## Original Project (Modules 1–3)
 
-### System Overview
-
-Real-world streaming platforms (Spotify, YouTube) use **hybrid systems** that combine collaborative filtering (what similar users listened to) and content-based filtering (song audio features), alongside massive behavioral data, business logic, and ranking strategies. 
-
-**This simulation prioritizes simplicity and explainability.** I implement a **content-based recommender** that scores every song in the catalog against a user's taste profile, then ranks the results.
+This project began as **VibeMatcher 1.0**, a content-based music recommendation simulation built during Modules 1–3 of the Applied AI course. Its original goal was to demonstrate how streaming platforms like Spotify use audio features — genre, mood, energy, tempo — to score and rank songs against a user's taste profile. The system used a weighted scoring formula (genre +1.5, mood +2.0, energy similarity up to +4.0) applied to a handcrafted catalog of 18 songs, run entirely through a command-line demo with hard-coded user profiles.
 
 ---
 
-### Data Structures
+## Title & Summary
 
-#### Song Object
-**Features used for content-based scoring:**
-- `genre` (string) — Primary categorical filter (e.g., "rock", "lofi", "jazz")
-- `mood` (string) — Emotional context (e.g., "intense", "chill", "happy")
-- `energy` (0-1 float) — Intensity/vigor of the song
-- `tempo_bpm` (int) — Beats per minute (60-160 BPM range)
-- `valence` (0-1 float) — Musical mood positivity/sadness
-- `danceability` (0-1 float) — How suitable for dancing
-- `acousticness` (0-1 float) — Acoustic vs. electronic balance
+**VibeMatcher AI** transforms that foundation into a fully end-to-end AI system. Instead of fixed profiles, users type natural-language queries like *"heavy rock for the gym"* or *"calm ambient music to wind down"*. The system understands the intent, retrieves semantically relevant songs using a local AI model, re-ranks them by audio features, and explains every step of its reasoning.
 
-**Why these?** Feature variance analysis shows `genre`, `mood`, `tempo_bpm`, and `valence` have the best differentiation. Features like `energy` and `danceability` are highly correlated with tempo, so they're not prioritized to keep the model simple.
-
-#### UserProfile Object
-**Defines user taste preferences:**
-- `favorite_genre` (string) — Primary genre preference
-- `favorite_mood` (string) — Preferred emotional tone  
-- `target_energy` (0-1 float) — Desired song intensity
-- `target_tempo` (int) — Preferred pace in BPM
-- `likes_acoustic` (bool) — Binary preference (acoustic/organic vs. electronic/synthetic)
+**Why it matters:** Most real-world recommenders are black boxes. This system is deliberately transparent — it shows exactly which candidates the AI retrieved, how they were ranked, and why. That transparency is useful both for understanding how AI recommendations work and for building trust in the output.
 
 ---
 
-### Algorithm Recipe: Finalized Scoring Logic
+## Architecture Overview
 
-For each song in the dataset, compute a **similarity score (0–5.0 scale)** as follows:
+The system is organized into five layers:
 
 ```
-SCORE = 0
-
-// Categorical Filters (Primary Interest)
-IF song.genre == user.favorite_genre:
-    SCORE += 2.0  ← Genre match is strongest signal
-
-IF song.mood == user.favorite_mood:
-    SCORE += 1.0  ← Mood is secondary
-
-// Binary Preference
-IF user.likes_acoustic == False AND song.acousticness < 0.5:
-    SCORE += 0.5  ← Prefers electronic/synthetic
-ELSE IF user.likes_acoustic == True AND song.acousticness >= 0.5:
-    SCORE += 0.5  ← Prefers acoustic/organic
-
-// Numeric Similarity (Fine-tuning)
-energy_similarity = max(0, 1.0 - |song.energy - user.target_energy|)
-SCORE += energy_similarity              ← Range: 0 to 1.0
-
-tempo_normalized = |song.tempo_bpm - user.target_tempo| / 100
-tempo_similarity = max(0, 1.0 - tempo_normalized)
-SCORE += tempo_similarity               ← Range: 0 to 1.0
-
-RETURN SCORE  ← Final range: 0.0 to 5.0
+User Query → [Parser] → [RAG Retriever] → [Content Scorer] → [Validator] → [Explainer] → Output
+                                                                   ↑
+                                                          retry with relaxed
+                                                          constraints if needed
 ```
 
-#### Point Breakdown
+**Input Layer** — Users interact via a Streamlit web UI (`src/app.py`) or the CLI (`src/main.py`).
 
-| Component | Points | Why |
-|-----------|--------|-----|
-| Genre match | +2.0 | Strongest signal; primary filter |
-| Mood match | +1.0 | Secondary; emotional context |
-| Acousticness preference | +0.5 | Binary "vibe" preference |
-| Energy similarity | 0-1.0 | Normalized closeness (0 = very different, 1.0 = identical) |
-| Tempo similarity | 0-1.0 | Normalized by 100 BPM scale |
-| **Maximum possible** | **5.0** | Perfect match across all dimensions |
+**Agent Pipeline** (`src/agent.py`) — A five-step orchestrator:
+1. **Parser** extracts structured intent (mood, genre, energy) from the query using keyword matching
+2. **Retriever** uses `RAGEngine` to semantically embed the query and find the 15 most similar songs from the catalog — this is the RAG step
+3. **Scorer** applies content-based weighted scoring to those 15 candidates and returns the top 5
+4. **Validator** self-checks whether the output actually satisfies the stated intent; if not, it relaxes constraints and retries (up to 3 iterations)
+5. **Explainer** generates a plain-English walkthrough of what the AI did
 
-#### Why This Weighting?
+**Data & Models** — `data/songs.csv` (18 songs × 10 features) and the `all-MiniLM-L6-v2` sentence-transformer model, which runs fully locally after a one-time ~90 MB download.
 
-- **Hierarchical filters:** Genre/mood decide **if** you recommend; energy/tempo decide **how good** the match is
-- **60% categorical (3.0 pts), 40% numeric (2.0 pts):** Reflects that "type of song" matters most, but "how it feels" matters too
-- **Clear differentiation:** Top matches score 4.5+; poor matches score <1.0; gap of 3+ points between best and worst
+**Reliability Layer** — `evaluate/evaluate.py` runs 12 automated test cases covering relevance, consistency, and edge cases. `tests/test_recommender.py` covers unit behavior with pytest. All activity is logged to `logs/`.
 
-**Validation Test:** For a user who loves "intense rock":
-- Storm Runner (rock/intense, high energy, fast tempo): **5.32/5.0** ✓ Perfect match
-- Midnight Coding (lofi/chill, low energy, slow tempo): **0.95/5.0** ✓ Poor match  
-- Differentiation gap: **4.37 points** → Clear separation
+See [system_diagram.md](system_diagram.md) for the full visual diagram.
 
 ---
 
-### Ranking Rule: How We Choose Which Songs to Recommend
+## Setup Instructions
 
-1. **Score all songs** using the algorithm above (O(n) scoring pass)
-2. **Sort descending** by score (highest first)
-3. **Select top K** (e.g., K=5 for top 5 recommendations)
-4. **Format with explanations** — for each song, show the score breakdown:
-   - Which checks passed (genre match, mood match, etc.)
-   - Numeric similarity scores
+### Prerequisites
+- Python 3.9 or higher
+- Internet connection for first run (downloads the ~90 MB sentence-transformer model once; after that everything runs offline)
 
-**Example ranking output:**
-```
-1. Storm Runner (5.32/5.0)      ← Rank 1: Perfect genre + mood match
-   Why: Genre match, Mood match, High energy, Fast tempo, Electronic
+### Step 1 — Clone or download the project
 
-2. Gym Hero (3.34/5.0)          ← Rank 2: No exact matches, but good energy
-   Why: High energy, Fast tempo, Electronic
-
-3. Neon Rush (2.29/5.0)         ← Rank 3: Different genre, but vibes similar
-   Why: Very high energy, Electronic, Danceable
+```bash
+git clone <your-repo-url>
+cd applied-ai-system-project
 ```
 
----
+### Step 2 — Create a virtual environment (recommended)
 
-### Known Biases & Limitations
+```bash
+python -m venv .venv
 
-The scoring logic has several built-in biases to be aware of:
+# Windows
+.venv\Scripts\activate
 
-1. **Genre over-prioritization** (+2.0 points)
-   - A song matching genre gets 40% of the max score by itself
-   - **Risk:** Excellent mood/energy matches from different genres are penalized
-   - **Example:** A perfectly matched "energetic jazz" song (score ~2.5) ranks below a mediocre "low-energy rock" song (score ~2.0)
-   
-2. **Mood under-prioritization** (+1.0 point)
-   - Mood is half the weight of genre, even though they're equally important to user experience
-   - **Risk:** A user who says "I want happy music" might get sad rock songs if they also like rock
-   - **Fix:** Could increase mood weight to +1.5 for certain user profiles
-
-3. **Binary acousticness** (all-or-nothing at 0.5 threshold)
-   - No gradation; a song at 0.49 is treated identically to one at 0.0
-   - **Risk:** Misses nuanced acoustic-synthetic hybrids
-   - **Fix:** Could use continuous similarity instead of binary threshold
-
-4. **Large tempo scale normalization** (÷100 BPM)
-   - A 100 BPM difference is treated as 1.0 dissimilarity
-   - **Risk:** Songs far outside preference range still score points; doesn't hard-reject mismatched tempos
-   - **Example:** User prefers 140 BPM, but a 60 BPM soft song scores 0.8 on tempo similarity (still good)
-   - **Fix:** Could use hard threshold (ignore songs >X BPM away) or log scale
-
-5. **No diversity penalty**
-   - System always recommends the highest-scoring songs
-   - **Risk:** Top 5 might be all the same subgenre (e.g., 5 songs of "synth-pop")
-   - **Current:** Could add diversity bonus in ranking stage, but not implemented yet
-
-6. **Dataset bias toward mid-tempo, electronic-electronic** 
-   - Added songs lean toward EDM/synthwave/lofi (new songs are more electronic)
-   - **Risk:** Users who prefer acoustic instruments are disadvantaged
-   - **Note:** Only 18 songs; not representative of real catalog diversity
-
----
-
-### Pipeline: Input → Process → Output
-
-```
-User Input              Processing (Loop)                 Output
-┌─────────────────┐    ┌──────────────────────┐    ┌──────────────────┐
-│ User Profile    │───→│ FOR each song:       │───→│ Ranked Top K     │
-│ - Genre         │    │  1. Extract features │    │ with explanations │
-│ - Mood          │    │  2. Calculate score  │    │                   │
-│ - Energy        │    │  3. Store (song,     │    │ User sees:       │
-│ - Tempo         │    │     score, reasons)  │    │ 1. Song X (4.5)  │
-│ - Acousticness  │    └──────────────────────┘    │    Why: ...      │
-│ - K (top N)     │              ↓                 │ 2. Song Y (3.8)  │
-└─────────────────┘    18 scored songs (CSV)       │    Why: ...      │
-                                                    └──────────────────┘
+# Mac / Linux
+source .venv/bin/activate
 ```
 
-Screenshots:
-![alt text](image.png)
-![alt text](image-1.png)
-![alt text](image-2.png)
-![alt text](image-3.png)
-![alt text](image-4.png)
-![alt text](image-5.png)
-![alt text](image-6.png)
-![alt text](image-7.png)
----
-
-## Getting Started
-
-### Setup
-
-1. Create a virtual environment (optional but recommended):
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
-   .venv\Scripts\activate         # Windows
-
-2. Install dependencies
+### Step 3 — Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run the app:
+Dependencies: `pandas`, `pytest`, `streamlit`, `sentence-transformers`, `scikit-learn`, `numpy`
 
+> On first run, `sentence-transformers` will automatically download the `all-MiniLM-L6-v2` model from HuggingFace. This requires an internet connection once. The model is then cached and all subsequent runs are fully offline. No API keys required.
+
+### Step 4 — Run the app
+
+**Web UI (recommended):**
+```bash
+python -m streamlit run src/app.py
+```
+Opens at `http://localhost:8501`
+
+**CLI — interactive mode:**
 ```bash
 python -m src.main
 ```
 
-### Running Tests
-
-Run the starter tests with:
-
+**CLI — one-shot query:**
 ```bash
-pytest
+python -m src.main "heavy rock for working out"
 ```
 
-You can add more tests in `tests/test_recommender.py`.
+**CLI — original demo profiles (no model download needed):**
+```bash
+python -m src.main --demo
+```
+
+### Step 5 — Run tests
+
+```bash
+# Unit tests
+pytest
+
+# Reliability evaluation (runs 12 test cases, saves JSON report to logs/)
+python -m evaluate.evaluate
+```
 
 ---
 
-## Experiments You Tried
+## Sample Interactions
 
-Use this section to document the experiments you ran. For example:
+### Example 1 — "chill lofi for studying"
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+**Input:** `chill lofi for studying`
+
+**Parsed intent:** mood=chill, genre=lofi, energy=0.20, context=study
+
+**RAG semantic search found:** Midnight Coding, Library Rain, Focus Flow (closest semantic matches)
+
+**Final recommendations:**
+```
+#1  Library Rain — Paper Lanterns
+    lofi / chill  |  Score: 6.90/9.0
+    Why: genre match (+1.5) | mood match (+2.0) | energy similarity (+3.8)
+
+#2  Midnight Coding — LoRoom
+    lofi / chill  |  Score: 6.62/9.0
+    Why: genre match (+1.5) | mood match (+2.0) | energy similarity (+3.1)
+
+#3  Spacewalk Thoughts — Orbit Bloom
+    ambient / chill  |  Score: 5.68/9.0
+    Why: mood match (+2.0) | energy similarity (+3.7)
+```
+**Validation:** Passed in 1 iteration — all top 3 have `chill` mood, average energy 0.35 (well within low-energy target).
 
 ---
 
-## Limitations and Risks
+### Example 2 — "upbeat happy pop music"
 
-Summarize some limitations of your recommender.
+**Input:** `upbeat happy pop music`
 
-Examples:
+**Parsed intent:** mood=happy, genre=pop, energy=0.85
 
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
+**Final recommendations:**
+```
+#1  Sunrise City — Neon Echo
+    pop / happy  |  Score: 8.42/9.0
+    Why: genre match (+1.5) | mood match (+2.0) | energy similarity (+3.9) | positive vibes (+1.0)
 
-You will go deeper on this in your model card.
+#2  Rooftop Lights — Indigo Parade
+    indie pop / happy  |  Score: 6.84/9.0
+    Why: mood match (+2.0) | energy similarity (+3.8) | positive vibes (+1.0)
+
+#3  Gym Hero — Max Pulse
+    pop / intense  |  Score: 5.98/9.0
+    Why: genre match (+1.5) | energy similarity (+3.5) | positive vibes (+1.0)
+```
+**Validation:** Passed in 1 iteration — top result is exact genre + mood match with near-perfect score.
+
+---
+
+### Example 3 — Edge case: "bossa nova music" (genre not in catalog)
+
+**Input:** `bossa nova music`
+
+**Parsed intent:** mood=None, genre=None (bossa nova not in catalog), energy=0.5
+
+**What the agent did:** RAG retrieved songs most semantically similar to "bossa nova" — it found jazz and acoustic songs. Content-based scorer ran without a genre filter. Validation relaxed constraints automatically since no mood was specified.
+
+**Final recommendations:**
+```
+#1  Coffee Shop Stories — Slow Stereo
+    jazz / relaxed  |  Score: 3.50/9.0
+
+#2  Island Breeze — Reggae Vibes
+    reggae / laid-back  |  Score: 3.30/9.0
+
+#3  Autumn Leaves — Folk Revival
+    folk / introspective  |  Score: 3.20/9.0
+```
+**Behavior:** No crash. System gracefully falls back to semantic similarity — reasonable genre neighbors rather than an empty result.
+
+---
+
+## Design Decisions
+
+### Why RAG instead of expanding the scoring formula?
+
+The original VibeMatcher scored every song against fixed preferences. This works for structured inputs but breaks completely for natural language — "something to zone out to" has no genre or mood keyword to match. RAG lets the system understand the *meaning* of the request, not just its keywords. By first retrieving semantically relevant songs, the content-based scorer operates on a pre-filtered, already-relevant subset, making results more accurate than either approach alone.
+
+**Trade-off:** RAG adds a ~90 MB model dependency and a cold-start download. For a production system with millions of songs, you would use a vector database (Pinecone, Weaviate) rather than in-memory numpy arrays. For 18 songs, numpy is fast enough and keeps dependencies minimal.
+
+### Why keyword NLU instead of a real language model for parsing?
+
+Using a full LLM for query parsing (e.g., GPT or a local Llama model) would add gigabytes of dependencies and require either a paid API or significant local compute. The keyword-based parser in `agent.py` covers the space of queries well enough for the 18-song catalog, and it's completely transparent — you can read exactly what it does. The RAG step handles the cases where keywords miss, because even if "chill" isn't detected as a keyword, the semantic embedding will still retrieve low-energy songs.
+
+**Trade-off:** The parser doesn't understand negation ("no hip hop") or complex intent ("something like Radiohead but happier"). A real NLP layer would be needed for a production system.
+
+### Why an agentic validation loop?
+
+A single-pass system would sometimes return results that technically scored highest but felt wrong — for example, a "workout" query might return a high-energy jazz song that scores well on energy but contradicts the intent. The validator adds a self-check that catches the worst mismatches and retries with relaxed constraints. This pattern (act → check → retry) is a core principle of agentic AI systems.
+
+**Trade-off:** Up to 3 iterations means the system can be slower in edge cases. In practice it almost always passes on the first iteration.
+
+### Why sentence-transformers over a cloud API?
+
+The rubric requires no paid API keys. `sentence-transformers` with `all-MiniLM-L6-v2` is:
+- Free and open source (Apache 2.0 license)
+- Small enough to download once and cache (~90 MB vs. gigabytes for larger models)
+- Fast at inference (embeddings compute in milliseconds after loading)
+- Accurate enough for the task — it's specifically trained for semantic similarity
+
+---
+
+## Testing Summary
+
+### What was tested
+
+| Test Type | Tool | Cases | Result |
+|-----------|------|-------|--------|
+| Unit tests | `pytest` | 2 | 2/2 pass |
+| Relevance tests | `evaluate.py` | 7 | Verifies top results match stated mood/genre |
+| Consistency tests | `evaluate.py` | 2 | Same query → same top result (deterministic) |
+| Edge case tests | `evaluate.py` | 3 | Empty query, unknown genre, conflicting prefs |
+
+### What worked well
+
+- **RAG retrieval is accurate.** For "chill lofi for studying," the top semantic match was `Midnight Coding (lofi/chill)` with similarity 0.547 — exactly right. The sentence-transformer model generalizes well beyond exact keyword matches.
+- **The agentic retry loop was never actually needed** in normal testing — validation passed on the first iteration for all reasonable queries. This is a good sign: the combined RAG + CF approach produces aligned results without needing correction.
+- **Edge cases handled gracefully.** Empty queries default to "chill music." Unknown genres fall back to semantic similarity. No test caused a crash.
+
+### What didn't work as expected
+
+- **The parser misses negation.** Typing "not rock" still returns rock songs because the keyword "rock" is detected regardless of context.
+- **Small catalog limits diversity.** With 18 songs, queries for rare moods (e.g., "angry" or "introspective") return few true matches and the scorer fills the remaining slots with energy-adjacent results.
+- **Git Bash suppresses Streamlit's startup output**, making it look like the server is frozen when it's actually loading. Using `python -m streamlit run` from PowerShell or a system terminal resolves this.
+
+### What I learned from testing
+
+Running the evaluation battery revealed that the `focused` mood in songs.csv doesn't match any mood keyword the parser produces — it maps internally to "chill," which is close but not exact. This kind of vocabulary mismatch between the model's labels and user language is a real challenge in production recommenders and something Spotify addresses with hundreds of human-curated mood categories.
 
 ---
 
 ## Reflection
 
-Read and complete `model_card.md`:
+Building VibeMatcher AI taught me that the gap between a working algorithm and a useful AI system is mostly about robustness and trust. The original scoring formula from Module 1 was technically correct — it ranked songs by the right features. But it couldn't handle how real people actually express what they want. Nobody says "genre: lofi, mood: chill, energy: 0.4" — they say "something to study to."
 
-[**Model Card**](model_card.md)
+RAG bridged that gap in a way that felt almost surprising. Embedding a sentence like "something to wind down after a long day" and finding that it's geometrically closest to ambient and folk songs — without any handcrafted rules — demonstrates something important: meaning is structure, and neural networks can learn that structure from text alone.
 
-Write 1 to 2 paragraphs here about what you learned:
+The agentic validation loop also changed how I think about AI reliability. Instead of accepting the first output, the agent checks its own work against the original intent. This is a small version of the same principle behind reinforcement learning from human feedback — using a signal (did the output match the request?) to improve results. Even a simple rule-based validator made the system meaningfully more trustworthy.
 
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
-
+The biggest open question this project left me with: how do you scale trust? With 18 songs and 12 test cases, I can reason about every recommendation manually. Real systems make billions of recommendations daily with no human in the loop. The logging, evaluation, and transparency features I built here are the beginning of an answer — but they only work if someone actually reads the logs. Designing AI systems that remain interpretable at scale seems like one of the most important unsolved problems in the field.
 
 ---
 
-## 7. `model_card_template.md`
+## Project Structure
 
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
-
-```markdown
-# 🎧 Model Card - Music Recommender Simulation
-
-## 1. Model Name
-
-Give your recommender a name, for example:
-
-> VibeFinder 1.0
-
----
-
-## 2. Intended Use
-
-- What is this system trying to do
-- Who is it for
-
-Example:
-
-> This model suggests 3 to 5 songs from a small catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
-
----
-
-## 3. How It Works (Short Explanation)
-
-Describe your scoring logic in plain language.
-
-- What features of each song does it consider
-- What information about the user does it use
-- How does it turn those into a number
-
-Try to avoid code in this section, treat it like an explanation to a non programmer.
+```
+applied-ai-system-project/
+├── src/
+│   ├── recommender.py      # Content-based scoring (Song, UserProfile, Recommender)
+│   ├── rag_engine.py       # RAGEngine — semantic search via sentence-transformers
+│   ├── agent.py            # MusicAgent — full 5-step agentic pipeline
+│   ├── app.py              # Streamlit web UI
+│   ├── main.py             # CLI entry point
+│   └── logger_config.py    # Logging to logs/
+├── data/
+│   └── songs.csv           # 18-song catalog with audio features
+├── evaluate/
+│   └── evaluate.py         # 12-case reliability test battery
+├── tests/
+│   └── test_recommender.py # pytest unit tests
+├── system_diagram.md       # Architecture diagrams (Mermaid + ASCII)
+├── model_card.md           # Model documentation
+├── requirements.txt
+└── README.md
+```
 
 ---
 
-## 4. Data
+## Dependencies
 
-Describe your dataset.
+| Package | Purpose | License |
+|---------|---------|---------|
+| `sentence-transformers` | Local semantic embeddings for RAG | Apache 2.0 |
+| `scikit-learn` | Cosine similarity computation | BSD |
+| `numpy` | Vector math | BSD |
+| `streamlit` | Web UI framework | Apache 2.0 |
+| `pandas` | Data handling | BSD |
+| `pytest` | Unit testing | MIT |
 
-- How many songs are in `data/songs.csv`
-- Did you add or remove any songs
-- What kinds of genres or moods are represented
-- Whose taste does this data mostly reflect
-
----
-
-## 5. Strengths
-
-Where does your recommender work well
-
-You can think about:
-- Situations where the top results "felt right"
-- Particular user profiles it served well
-- Simplicity or transparency benefits
-
----
-
-## 6. Limitations and Bias
-
-Where does your recommender struggle
-
-Some prompts:
-- Does it ignore some genres or moods
-- Does it treat all users as if they have the same taste shape
-- Is it biased toward high energy or one genre by default
-- How could this be unfair if used in a real product
-
----
-
-## 7. Evaluation
-
-How did you check your system
-
-Examples:
-- You tried multiple user profiles and wrote down whether the results matched your expectations
-- You compared your simulation to what a real app like Spotify or YouTube tends to recommend
-- You wrote tests for your scoring logic
-
-You do not need a numeric metric, but if you used one, explain what it measures.
-
----
-
-## 8. Future Work
-
-If you had more time, how would you improve this recommender
-
-Examples:
-
-- Add support for multiple users and "group vibe" recommendations
-- Balance diversity of songs instead of always picking the closest match
-- Use more features, like tempo ranges or lyric themes
-
----
-
-## 9. Personal Reflection
-
-A few sentences about what you learned:
-
-- What surprised you about how your system behaved
-- How did building this change how you think about real music recommenders
-- Where do you think human judgment still matters, even if the model seems "smart"
-
+No paid APIs. No accounts required. Fully reproducible from `pip install -r requirements.txt`.

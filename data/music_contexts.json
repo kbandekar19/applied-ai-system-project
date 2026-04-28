@@ -1,0 +1,50 @@
+[
+  {
+    "name": "studying_focus",
+    "text": "Music for studying, deep work, concentration, homework, coding sessions, reading, or focus. Low to moderate energy. Slow tempo around 60-90 BPM. Minimal distracting vocals. Lo-fi hip hop, ambient, instrumental, and classical genres work best. Calm, chill, peaceful, or focused mood.",
+    "mood_tags": ["chill", "focused", "peaceful", "relaxed"],
+    "genre_tags": ["lofi", "ambient", "classical", "jazz"]
+  },
+  {
+    "name": "workout_gym",
+    "text": "Music for working out, gym sessions, running, jogging, exercise, cardio, weight training, sports, or getting pumped up. High energy above 0.8. Fast tempo above 120 BPM. Intense, aggressive, or euphoric mood. Rock, metal, electronic, hip-hop, and pop with driving rhythm.",
+    "mood_tags": ["intense", "aggressive", "euphoric", "happy"],
+    "genre_tags": ["rock", "metal", "electronic", "hip-hop", "pop"]
+  },
+  {
+    "name": "sleep_relax",
+    "text": "Music for sleeping, falling asleep, relaxation, meditation, wind down, stress relief, spa, yoga, or bedtime. Very low energy below 0.4. Slow tempo below 80 BPM. Peaceful, ambient, classical, folk, or acoustic genres. Serene, tranquil, calming atmosphere.",
+    "mood_tags": ["peaceful", "relaxed", "chill", "introspective"],
+    "genre_tags": ["ambient", "classical", "folk", "lofi", "jazz"]
+  },
+  {
+    "name": "driving_roadtrip",
+    "text": "Music for driving, road trips, commuting, cruising, or long drives at night. Moderate to high energy. Steady driving rhythm. Synthwave, rock, pop, indie, and electronic genres. Moody, upbeat, or anthemic feel. Good for windows down and highway speeds.",
+    "mood_tags": ["moody", "happy", "euphoric", "intense"],
+    "genre_tags": ["synthwave", "rock", "pop", "electronic", "indie pop"]
+  },
+  {
+    "name": "party_social",
+    "text": "Music for parties, social gatherings, dancing, clubs, celebrations, getting hyped, or pre-game. High danceability above 0.8. Upbeat, euphoric, or happy mood. Pop, electronic, hip-hop, and dance music. High energy and positive vibes.",
+    "mood_tags": ["euphoric", "happy", "laid-back"],
+    "genre_tags": ["pop", "electronic", "hip-hop", "reggae"]
+  },
+  {
+    "name": "morning_motivation",
+    "text": "Music to start the day, morning routine, waking up, motivation, inspiration, or positive energy to kick off the day. Moderate to high energy. Happy, upbeat, or positive mood. Pop, indie pop, or feel-good genres. Bright and optimistic tone.",
+    "mood_tags": ["happy", "euphoric"],
+    "genre_tags": ["pop", "indie pop", "reggae"]
+  },
+  {
+    "name": "evening_chill",
+    "text": "Music for evening relaxation, winding down after work, chill sessions, cooking dinner, lounging, or background ambiance at home. Low to moderate energy. Smooth jazz, lofi, ambient, folk, blues, or acoustic music. Mellow, laid-back, or introspective mood.",
+    "mood_tags": ["chill", "relaxed", "laid-back", "introspective", "melancholic"],
+    "genre_tags": ["jazz", "lofi", "ambient", "folk", "blues"]
+  },
+  {
+    "name": "emotional_introspective",
+    "text": "Music for processing emotions, heartbreak, nostalgia, deep thinking, introspection, or melancholic moods. Lower valence indicating sadness or complexity. Blues, folk, indie, country, or alternative. Moody, melancholic, or introspective atmosphere. Good for journaling or reflection.",
+    "mood_tags": ["melancholic", "moody", "introspective"],
+    "genre_tags": ["blues", "folk", "country", "indie pop"]
+  }
+]
